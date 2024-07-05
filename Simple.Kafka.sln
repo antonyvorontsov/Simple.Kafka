@@ -1,0 +1,21 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{F0D0344C-74FA-40F6-856D-5F92B80CDF65}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simple.Kafka.Producer", "src\Simple.Kafka.Producer\Simple.Kafka.Producer.csproj", "{A4C79E37-2404-453E-B84A-04B40C471219}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A4C79E37-2404-453E-B84A-04B40C471219} = {F0D0344C-74FA-40F6-856D-5F92B80CDF65}
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A4C79E37-2404-453E-B84A-04B40C471219}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4C79E37-2404-453E-B84A-04B40C471219}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4C79E37-2404-453E-B84A-04B40C471219}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4C79E37-2404-453E-B84A-04B40C471219}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
