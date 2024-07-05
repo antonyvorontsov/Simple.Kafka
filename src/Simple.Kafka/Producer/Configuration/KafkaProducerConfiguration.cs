@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Simple.Kafka.Producer.Serializers;
 
 namespace Simple.Kafka.Producer.Configuration;

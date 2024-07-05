@@ -1,5 +1,3 @@
-using System;
-
 namespace Simple.Kafka.Producer.Configuration;
 
 internal sealed class KafkaProducerKeyBodyTypePair : IEquatable<KafkaProducerKeyBodyTypePair>

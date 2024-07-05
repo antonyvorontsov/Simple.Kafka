@@ -1,7 +1,4 @@
 using Confluent.Kafka;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Threading;
 using Simple.Kafka.Producer.Exceptions;
 
 namespace Simple.Kafka.Producer;

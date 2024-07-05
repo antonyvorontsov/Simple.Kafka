@@ -1,4 +1,4 @@
-namespace Simple.Kafka.Producer.Configuration;
+namespace Simple.Kafka.Configuration;
 
 public sealed class KafkaConnectionConfiguration
 {

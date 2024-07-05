@@ -1,4 +1,3 @@
-using System;
 using System.Text.Json;
 using Confluent.Kafka;
 using Simple.Kafka.Producer.Exceptions;

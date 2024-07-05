@@ -1,22 +1,19 @@
-using System;
-using System.Collections.Generic;
 using Confluent.Kafka;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Options;
+using Simple.Kafka.Producer;
 using Simple.Kafka.Producer.Configuration;
 using Simple.Kafka.Producer.Configuration.Builders;
 using Simple.Kafka.Producer.Serializers;
 
-namespace Simple.Kafka.Producer;
+namespace Simple.Kafka.Builders;
 
-public static class ServiceCollectionExtensions
+public sealed class SimpleKafkaBuilder(string brokers, IServiceCollection services)
 {
-    public static IServiceCollection AddKafkaProducer(
-        this IServiceCollection services,
+    public SimpleKafkaBuilder AddKafkaProducer(
         Action<KafkaProducerConfigurationBuilder>? builder = null)
     {
-        services.TryAddKafkaProducerInfrastructure();
+        TryAddKafkaProducerInfrastructure();
         services.TryAddSingleton<IKafkaProducer, KafkaProducer>();
         services.Configure<KafkaProducerConfiguration>(
             config =>
@@ -28,11 +25,10 @@ public static class ServiceCollectionExtensions
         var builderInstance = new KafkaProducerConfigurationBuilder(services);
         builder?.Invoke(builderInstance);
 
-        return services;
+        return this;
     }
 
-    public static IServiceCollection AddKafkaProducer<TKey, TBody>(
-        this IServiceCollection services,
+    public SimpleKafkaBuilder AddKafkaProducer<TKey, TBody>(
         string topic,
         Action<KafkaProducerConfigurationBuilder<TKey, TBody>>? builder = null)
     {
@@ -41,7 +37,7 @@ public static class ServiceCollectionExtensions
             throw new ArgumentException("Topic name is required", nameof(topic));
         }
 
-        services.TryAddKafkaProducerInfrastructure();
+        TryAddKafkaProducerInfrastructure();
         services.Configure<KafkaProducerConfiguration<TKey, TBody>>(
             config =>
             {
@@ -54,19 +50,18 @@ public static class ServiceCollectionExtensions
         var builderInstance = new KafkaProducerConfigurationBuilder<TKey, TBody>(services);
         builder?.Invoke(builderInstance);
 
-        return services;
+        return this;
     }
 
-    public static IServiceCollection AddKafkaProducerHeaderEnricher<TEnricher>(this IServiceCollection services)
+    public SimpleKafkaBuilder AddKafkaProducerHeaderEnricher<TEnricher>()
         where TEnricher : class, IKafkaHeaderEnricher
     {
         services.AddTransient<IKafkaHeaderEnricher, TEnricher>();
 
-        return services;
+        return this;
     }
 
-    public static IServiceCollection SetKafkaProducerConfiguration(
-        this IServiceCollection services,
+    public SimpleKafkaBuilder SetKafkaProducerConfiguration(
         Action<ProducerConfig>? configuration = null)
     {
         var producerConfig = new ProducerConfig
@@ -79,32 +74,23 @@ public static class ServiceCollectionExtensions
             BatchNumMessages = 10_000
         };
         configuration?.Invoke(producerConfig);
+        
+        // Setting bootstrap servers right after the action invocation
+        // because this library is intended to work with only one kafka cluster.
+        // Thus we do not allow any overrides after the cluster registration is done.
+        producerConfig.BootstrapServers = brokers;
+        services.TryAddSingleton(producerConfig);
 
-        services.TryAddSingleton(
-            provider =>
-            {
-                var brokers = provider.GetRequiredService<IOptions<KafkaConnectionConfiguration>>().Value.Brokers;
-                if (string.IsNullOrEmpty(brokers))
-                {
-                    throw new InvalidOperationException(
-                        $"Brokers are not configured. Use AddKafka beforehand");
-                }
-
-                producerConfig.BootstrapServers = brokers;
-                return producerConfig;
-            });
-
-        return services;
+        return this;
     }
 
-    private static IServiceCollection TryAddKafkaProducerInfrastructure(
-        this IServiceCollection services)
+    private SimpleKafkaBuilder TryAddKafkaProducerInfrastructure()
     {
-        services.SetKafkaProducerConfiguration();
+        SetKafkaProducerConfiguration();
 
         services.TryAddSingleton<KafkaProducerFactory>();
         services.TryAddSingleton<IBaseProducer, BaseProducer>();
 
-        return services;
+        return this;
     }
 }

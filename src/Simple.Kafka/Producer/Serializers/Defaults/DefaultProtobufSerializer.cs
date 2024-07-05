@@ -1,4 +1,3 @@
-using System;
 using Confluent.Kafka;
 using Google.Protobuf;
 using Simple.Kafka.Producer.Exceptions;

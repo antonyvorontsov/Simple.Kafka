@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Concurrent;
 using System.Xml.Serialization;
 using Google.Protobuf;
