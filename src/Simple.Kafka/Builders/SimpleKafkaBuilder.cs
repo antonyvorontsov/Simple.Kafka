@@ -88,7 +88,7 @@ public sealed class SimpleKafkaBuilder(string brokers, IServiceCollection servic
     {
         SetKafkaProducerConfiguration();
 
-        services.TryAddSingleton<KafkaProducerFactory>();
+        services.TryAddSingleton<IKafkaProducerFactory, KafkaProducerFactory>();
         services.TryAddSingleton<IBaseProducer, BaseProducer>();
 
         return this;
