@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
+using Simple.Kafka.Common;
 using Simple.Kafka.Producer.Configuration;
 using Simple.Kafka.Producer.Serializers;
 
