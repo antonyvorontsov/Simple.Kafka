@@ -1,3 +1,5 @@
+using Confluent.Kafka;
+
 namespace Simple.Kafka.Producer;
 
-public readonly record struct KafkaMessage<TKey, TBody>(TKey Key, TBody Body);
+public sealed record KafkaMessage<TKey, TBody>(TKey Key, TBody Body, Headers? Headers = null);

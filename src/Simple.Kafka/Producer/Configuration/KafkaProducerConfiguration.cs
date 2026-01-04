@@ -14,6 +14,7 @@ public sealed class KafkaProducerConfiguration
     }
 }
 
+// ReSharper disable UnusedMember.Global
 public sealed class KafkaProducerConfiguration<TKey, TBody>
 {
     public Type KeyType => typeof(TKey);

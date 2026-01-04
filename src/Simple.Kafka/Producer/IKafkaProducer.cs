@@ -11,10 +11,15 @@ public interface IKafkaProducer
         TKey key,
         TBody body, 
         CancellationToken cancellationToken);
+    
+    Task Produce<TKey, TBody>(
+        string topic,
+        KafkaMessage<TKey, TBody> message,
+        CancellationToken cancellationToken);
 
     Task Produce<TKey, TBody>(
         string topic,
-        IReadOnlyCollection<KafkaMessage<TKey, TBody>> kafkaMessages,
+        IReadOnlyCollection<KafkaMessage<TKey, TBody>> messages,
         CancellationToken cancellationToken);
 }
 
@@ -24,8 +29,12 @@ public interface IKafkaProducer<TKey, TBody>
         TKey key,
         TBody body,
         CancellationToken cancellationToken);
+    
+    Task Produce(
+        KafkaMessage<TKey, TBody> message,
+        CancellationToken cancellationToken);
 
     Task Produce(
-        IReadOnlyCollection<KafkaMessage<TKey, TBody>> kafkaMessages,
+        IReadOnlyCollection<KafkaMessage<TKey, TBody>> messages,
         CancellationToken cancellationToken);
 }

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Xml.Serialization;
 using Google.Protobuf;
-using static Simple.Kafka.Producer.Serializers.Serializers;
+using Simple.Kafka.Producer.Serializers.Defaults;
 
 namespace Simple.Kafka.Producer.Serializers;
 
@@ -37,5 +37,13 @@ internal static class SerializerDetectionExtensions
         }
 
         return Default.Json;
+    }
+    
+    private static class Default
+    {
+        internal static readonly ISerializer Json = new DefaultJsonSerializer();
+        internal static readonly ISerializer Proto = new DefaultProtobufSerializer();
+        internal static readonly ISerializer Xml = new DefaultXmlSerializer();
+        internal static readonly ISerializer Byte = new DefaultByteSerializer();
     }
 }

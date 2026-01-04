@@ -6,8 +6,7 @@ using Confluent.Kafka;
 namespace Simple.Kafka.Producer;
 
 /// <summary>
-/// An internal producer which is responsible for sending
-/// plain Confluent.Kafka messages.
+/// An internal producer which is responsible for sending plain Confluent.Kafka messages.
 /// </summary>
 public interface IBaseProducer
 {
