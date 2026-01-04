@@ -1,3 +1,5 @@
+using System;
+
 namespace Simple.Kafka.Producer.Exceptions;
 
 public sealed class SimpleKafkaProducerSerializationException : Exception

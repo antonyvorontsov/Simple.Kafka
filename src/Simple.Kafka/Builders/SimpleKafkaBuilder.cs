@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Confluent.Kafka;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -77,20 +79,18 @@ public sealed class SimpleKafkaBuilder(string brokers, IServiceCollection servic
         
         // Setting bootstrap servers right after the action invocation
         // because this library is intended to work with only one kafka cluster.
-        // Thus we do not allow any overrides after the cluster registration is done.
+        // Thus, we do not allow any overrides after the cluster registration is done.
         producerConfig.BootstrapServers = brokers;
         services.TryAddSingleton(producerConfig);
 
         return this;
     }
 
-    private SimpleKafkaBuilder TryAddKafkaProducerInfrastructure()
+    private void TryAddKafkaProducerInfrastructure()
     {
         SetKafkaProducerConfiguration();
 
         services.TryAddSingleton<IKafkaProducerFactory, KafkaProducerFactory>();
         services.TryAddSingleton<IBaseProducer, BaseProducer>();
-
-        return this;
     }
 }

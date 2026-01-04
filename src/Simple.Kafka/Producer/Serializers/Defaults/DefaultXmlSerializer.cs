@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Text;
 using Confluent.Kafka;
 using Simple.Kafka.Producer.Exceptions;

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Simple.Kafka.Producer.Serializers;
 
 namespace Simple.Kafka.Producer.Configuration;
@@ -16,7 +18,7 @@ public sealed class KafkaProducerConfiguration<TKey, TBody>
 {
     public Type KeyType => typeof(TKey);
     public Type BodyType => typeof(TBody);
-    public string Topic { get; set; }
-    public ISerializer KeySerializer { get; set; }
-    public ISerializer BodySerializer { get; set; }
+    public required string Topic { get; set; }
+    public required ISerializer KeySerializer { get; set; }
+    public required ISerializer BodySerializer { get; set; }
 }

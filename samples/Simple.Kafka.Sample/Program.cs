@@ -38,8 +38,9 @@ var app = builder.Build();
 app.UseHttpsRedirection();
 app.Run();
 
-public sealed class CustomKey(string Key);
-public sealed class CustomBody(string Value);
+public sealed record CustomKey(string Key);
+
+public sealed record CustomBody(string Value);
 
 public sealed class ApplicationNameKafkaHeaderEnricher : IKafkaHeaderEnricher
 {

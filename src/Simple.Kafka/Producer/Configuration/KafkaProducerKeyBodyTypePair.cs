@@ -1,15 +1,12 @@
+using System;
+
 namespace Simple.Kafka.Producer.Configuration;
 
-internal sealed class KafkaProducerKeyBodyTypePair : IEquatable<KafkaProducerKeyBodyTypePair>
+internal sealed class KafkaProducerKeyBodyTypePair(Type keyType, Type bodyType)
+    : IEquatable<KafkaProducerKeyBodyTypePair>
 {
-    public Type KeyType { get; }
-    public Type BodyType { get; }
-
-    public KafkaProducerKeyBodyTypePair(Type keyType, Type bodyType)
-    {
-        KeyType = keyType;
-        BodyType = bodyType;
-    }
+    public Type KeyType { get; } = keyType;
+    public Type BodyType { get; } = bodyType;
 
     public bool Equals(KafkaProducerKeyBodyTypePair? other)
     {

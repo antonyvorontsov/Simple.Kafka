@@ -1,16 +1,14 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Confluent.Kafka;
 using Simple.Kafka.Producer.Exceptions;
 
 namespace Simple.Kafka.Producer;
 
-internal sealed class BaseProducer : IBaseProducer
+internal sealed class BaseProducer(IKafkaProducerFactory factory) : IBaseProducer
 {
-    private readonly IProducer<byte[]?, byte[]?> _producer;
-
-    public BaseProducer(IKafkaProducerFactory factory)
-    {
-        _producer = factory.Create();
-    }
+    private readonly IProducer<byte[]?, byte[]?> _producer = factory.Create();
 
     public async Task Produce(
         string topic,
