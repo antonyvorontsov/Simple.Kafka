@@ -29,7 +29,7 @@ Inside the `SimpleKafkaBuilder` configuration, you can use the following methods
 
 *   `AddKafkaProducer()`: Registers a generic Kafka producer (`IKafkaProducer`) that can send messages to any topic.
 *   `AddKafkaProducer<TKey, TBody>(string topic)`: Registers a specific Kafka producer (`IKafkaProducer<TKey, TBody>`) for a given topic. The key and body types are used for serialization.
-*   `AddKafkaProducerHeaderEnricher<TEnricher>()`: Registers a header enricher that adds custom headers to all messages.
+*   `AddKafkaProducerHeaderEnricher<TEnricher>()`: Registers a header enricher that adds custom headers to **_all_** messages.
 *   `SetKafkaProducerConfiguration(Action<ProducerConfig> config)`: Allows you to customize the underlying Confluent Kafka producer configuration.
 
 ### Usage
@@ -66,7 +66,6 @@ The library automatically handles serialization based on the type of the key and
 *   Classes that implement the `IMessage` interface from Google.Protobuf will be serialized to Protobuf.
 *   Other classes will be serialized to JSON.
 *   Primitive types will be sent as is.
-
 
 ## Consumer
 
