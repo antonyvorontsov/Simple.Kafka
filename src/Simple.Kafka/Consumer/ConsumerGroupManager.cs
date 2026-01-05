@@ -5,8 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
+using Simple.Kafka.Common;
 using Simple.Kafka.Consumer.Configuration;
-using Simple.Kafka.Consumer.Primitives;
 
 namespace Simple.Kafka.Consumer;
 
@@ -16,7 +16,6 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
     private readonly ConsumerConfig _consumerConfig;
     private readonly IMessageDispatcher _messageDispatcher;
     private readonly ICommitStrategyManager _commitStrategyManager;
-    private readonly IKafkaBuilderFactory _kafkaConsumerFactory;
     private readonly ILogger _logger;
 
     private IConsumer<byte[], byte[]>? _consumer;
@@ -28,14 +27,12 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
         ConsumerConfig consumerConfig,
         IMessageDispatcher messageDispatcher,
         ICommitStrategyManager commitStrategyManager,
-        IKafkaBuilderFactory kafkaConsumerFactory,
         ILogger<ConsumerGroupManager> logger)
     {
         _groupConfig = groupConfig;
         _consumerConfig = consumerConfig;
         _messageDispatcher = messageDispatcher;
         _commitStrategyManager = commitStrategyManager;
-        _kafkaConsumerFactory = kafkaConsumerFactory;
         _logger = logger;
         _pausedPartitions = groupConfig.Topics.ToDictionary(x => x, _ => new HashSet<TopicPartition>());
     }
@@ -113,7 +110,7 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
         {
             try
             {
-                using var consumer = _kafkaConsumerFactory.Create().Build();
+                using var consumer = BuildConsumer();
                 _logger.LogInformation("Consumer has been created");
                 
                 _consumer = consumer;
@@ -210,5 +207,11 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
         }
 
         return null;
+    }
+
+    private IConsumer<byte[], byte[]> BuildConsumer()
+    {
+        // TODO: Set handler for... methods.
+        return new ConsumerBuilder<byte[], byte[]>(_consumerConfig).Build();
     }
 }

@@ -40,13 +40,13 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
         _handlerName = $"{GetType().Name}<{typeof(TConsumer).Name}, {typeof(TKey).Name}, {typeof(TBody).Name}>";
     }
 
-    public async ValueTask Handle(Group group, ConsumeResult<byte[], byte[]> message, CancellationToken cancellationToken)
+    public async Task Handle(Group group, ConsumeResult<byte[], byte[]> message, CancellationToken cancellationToken)
     {
         await HandleWithRetries(group, message, cancellationToken);
         await CommitWithRetries(group, message, cancellationToken);
     }
 
-    private async ValueTask HandleWithRetries(
+    private async Task HandleWithRetries(
         Group group,
         ConsumeResult<byte[], byte[]> message,
         CancellationToken cancellationToken)
@@ -90,10 +90,11 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
                     message.TopicPartitionOffset.Topic,
                     message.TopicPartitionOffset.Partition.Value,
                     message.TopicPartitionOffset.Offset.Value);
-                var deserializedMessage = new ConsumedKafkaMessage<TKey, TBody>(
-                    new KafkaMessage<TKey, TBody>(key, body),
-                    causationId);
-                await Handle(group, deserializedMessage, cancellationToken);
+                await Handle(
+                    group,
+                    new KafkaMessage<TKey, TBody>(key, body, message.Message.Headers),
+                    causationId,
+                    cancellationToken);
                 return;
             }
             catch (Exception exception)
@@ -107,16 +108,20 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
         }
     }
 
-    public ValueTask Handle(Group group, ConsumedKafkaMessage<TKey, TBody> message, CancellationToken cancellationToken)
+    public Task Handle(
+        Group group,
+        KafkaMessage<TKey, TBody> message,
+        CausationId causationId,
+        CancellationToken cancellationToken)
     {
         if (_messageHandlerConfiguration.MessageProcessingTimeout is null)
         {
-            return _kafkaConsumer.Handle(message, cancellationToken);
+            return _kafkaConsumer.Handle(message, causationId, cancellationToken);
         }
 
         using var childCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         childCts.CancelAfter(_messageHandlerConfiguration.MessageProcessingTimeout.Value);
-        return _kafkaConsumer.Handle(message, childCts.Token);
+        return _kafkaConsumer.Handle(message, causationId, childCts.Token);
     }
 
     private async Task CommitWithRetries(

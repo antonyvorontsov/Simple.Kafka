@@ -1,4 +1,4 @@
-namespace Simple.Kafka.Consumer.Primitives;
+namespace Simple.Kafka.Common;
 
 public readonly record struct Topic(string Value)
 {

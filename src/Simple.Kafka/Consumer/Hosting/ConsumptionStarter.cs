@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Simple.Kafka.Consumer.Hosting;
 
-internal sealed class KafkaConsumerStarter(
+internal sealed class ConsumptionStarter(
     IEnumerable<IConsumerGroupManager> consumerGroupManagers,
     IMessageDispatcher messageDispatcher)
     : BackgroundService

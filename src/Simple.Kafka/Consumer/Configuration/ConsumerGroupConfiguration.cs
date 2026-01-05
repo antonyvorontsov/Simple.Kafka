@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Simple.Kafka.Common;
 using Simple.Kafka.Consumer.Primitives;
 
 namespace Simple.Kafka.Consumer.Configuration;

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Simple.Kafka.Common;
 using Simple.Kafka.Consumer.Primitives;
 
 namespace Simple.Kafka.Consumer;

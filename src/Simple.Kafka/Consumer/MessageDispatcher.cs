@@ -6,6 +6,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
+using Simple.Kafka.Common;
 using Simple.Kafka.Consumer.Configuration;
 using Simple.Kafka.Consumer.Primitives;
 
@@ -13,8 +14,8 @@ namespace Simple.Kafka.Consumer;
 
 internal sealed class MessageDispatcher : IMessageDispatcher
 {
-    private readonly IReadOnlyDictionary<Group, IReadOnlyDictionary<Topic, HandlerChannelContainer>> _messageHandlersMap;
-    private readonly IReadOnlyDictionary<Group, Channel<Topic>> _messageProcessedTriggerChannelMap;
+    private readonly Dictionary<Group, Dictionary<Topic, HandlerChannelContainer>> _messageHandlersMap;
+    private readonly Dictionary<Group, Channel<Topic>> _messageProcessedTriggerChannelMap;
 
     public MessageDispatcher(
         IEnumerable<IMessageHandler> messageHandlers,
@@ -24,7 +25,7 @@ internal sealed class MessageDispatcher : IMessageDispatcher
         _messageProcessedTriggerChannelMap = ConstructMessageProcessedTriggerChannelMap(dispatcherConfiguration.Value.GroupTargets);
     }
 
-    private static IReadOnlyDictionary<Group, Channel<Topic>> ConstructMessageProcessedTriggerChannelMap(IDictionary<Group, GroupTargetsConfiguration> groupTargets)
+    private static Dictionary<Group, Channel<Topic>> ConstructMessageProcessedTriggerChannelMap(Dictionary<Group, GroupTargetsConfiguration> groupTargets)
     {
         return groupTargets.ToDictionary(
             groupTarget => groupTarget.Key,
@@ -36,16 +37,16 @@ internal sealed class MessageDispatcher : IMessageDispatcher
                 }));
     }
 
-    private IReadOnlyDictionary<Group, IReadOnlyDictionary<Topic, HandlerChannelContainer>> ConstructMessageHandlersMap(
+    private Dictionary<Group, Dictionary<Topic, HandlerChannelContainer>> ConstructMessageHandlersMap(
         IEnumerable<IMessageHandler> messageHandlers,
-        IDictionary<Group, GroupTargetsConfiguration> groupTargets)
+        Dictionary<Group, GroupTargetsConfiguration> groupTargets)
     {
         return groupTargets.ToDictionary(
             groupTarget => groupTarget.Key,
             groupTarget => GetMessageHandlersForGroupTarget(messageHandlers, groupTarget));
     }
 
-    private IReadOnlyDictionary<Topic, HandlerChannelContainer> GetMessageHandlersForGroupTarget(
+    private Dictionary<Topic, HandlerChannelContainer> GetMessageHandlersForGroupTarget(
         IEnumerable<IMessageHandler> messageHandlers,
         KeyValuePair<Group, GroupTargetsConfiguration> groupTarget)
     {
@@ -70,7 +71,8 @@ internal sealed class MessageDispatcher : IMessageDispatcher
         return new HandlerChannelContainer(
             messageHandler,
             Channel.CreateBounded<ConsumeResult<byte[], byte[]>>(
-                new BoundedChannelOptions(1000)
+                // TODO: move to constants or make configurable
+                new BoundedChannelOptions(100_000)
                 {
                     FullMode = BoundedChannelFullMode.Wait,
                     SingleWriter = true,
@@ -80,12 +82,12 @@ internal sealed class MessageDispatcher : IMessageDispatcher
 
     public async Task<ChannelState> Publish(Group group, ConsumeResult<byte[], byte[]> message, CancellationToken cancellationToken)
     {
-        if (!_messageHandlersMap.ContainsKey(group))
+        if (!_messageHandlersMap.TryGetValue(group, out var value))
         {
             throw new InvalidOperationException($"Could not resolve message handlers for group {group}");
         }
 
-        if (!_messageHandlersMap[group].ContainsKey(message.Topic))
+        if (!value.ContainsKey(message.Topic))
         {
             throw new InvalidOperationException($"Could not resolve the message handler for group {group} and topic {message.Topic}");
         }
@@ -130,26 +132,29 @@ internal sealed class MessageDispatcher : IMessageDispatcher
 
     private bool ChannelCanBeConsideredFreeing(int currentChannelSize)
     {
+        // TODO: make configurable.
         return currentChannelSize <= 100;
     }
 
     private async Task PublishMessageProcessedTrigger(Group group, Topic topic, CancellationToken cancellationToken)
     {
-        if (!_messageProcessedTriggerChannelMap.ContainsKey(group))
+        if (!_messageProcessedTriggerChannelMap.TryGetValue(group, out var value))
         {
             throw new InvalidOperationException($"Could not use event channel, coz it has not been initialized for group {group} yet");
         }
 
-        await _messageProcessedTriggerChannelMap[group].Writer.WriteAsync(topic, cancellationToken);
+        await value.Writer.WriteAsync(topic, cancellationToken);
     }
 
     public IAsyncEnumerable<Topic> GetMessageProcessedTriggers(Group group, CancellationToken cancellationToken)
     {
-        if (!_messageProcessedTriggerChannelMap.ContainsKey(group))
+        if (!_messageProcessedTriggerChannelMap.TryGetValue(group, out var value))
         {
             throw new InvalidOperationException($"Could not use event channel, coz it has not been initialized for group {group} yet");
         }
 
-        return _messageProcessedTriggerChannelMap[group].Reader.ReadAllAsync(cancellationToken);
+        return value.Reader.ReadAllAsync(cancellationToken);
     }
+    
+    // TODO: shutdown and other stuff
 }

@@ -1,20 +1,21 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
+using Simple.Kafka.Common;
 using Simple.Kafka.Consumer.Configuration;
 using Simple.Kafka.Consumer.Deserializers;
+using Simple.Kafka.Consumer.Primitives;
 
 namespace Simple.Kafka.Consumer.Builders;
 
-public class KafkaConsumerGroupConfigurationBuilder(string group, IServiceCollection services)
+public class KafkaConsumerGroupConfigurationBuilder(Group group, IServiceCollection services)
 {
-    public string Group { get; } = group;
-    public IServiceCollection Services { get; } = services;
-    public List<string> Topics { get; } = new();
+    internal Group Group { get; } = group;
+    internal IServiceCollection Services { get; } = services;
+    internal HashSet<Topic> Topics { get; } = new();
 
     public KafkaConsumerGroupConfigurationBuilder AddConsumer<TConsumer, TKey, TBody>(
-        string topic,
-        CommitStrategy commitStrategy = CommitStrategy.StoreOffset,
+        Topic topic,
         Action<KafkaConsumerGroupBuilder<TConsumer, TKey, TBody>>? configuration = null)
         where TConsumer : class, IKafkaConsumer<TKey, TBody>
     {
@@ -23,12 +24,10 @@ public class KafkaConsumerGroupConfigurationBuilder(string group, IServiceCollec
             throw new ArgumentException("Topic has to be specified", nameof(topic));
         }
 
-        if (Topics.Contains(topic))
+        if (!Topics.Add(topic))
         {
             throw new ArgumentException("Topic has already been registered", nameof(topic));
         }
-
-        Topics.Add(topic);
 
         Services.Configure<ConsumerGroupsConfiguration>(x =>
             x.GroupConfigurations[Group].AddTopic(topic));
@@ -55,9 +54,6 @@ public class KafkaConsumerGroupConfigurationBuilder(string group, IServiceCollec
 
         Services.AddTransient<TConsumer>();
         Services.AddSingleton<IMessageHandler, MessageHandler<TConsumer, TKey, TBody>>();
-
-        Services.Configure<ConsumerGroupsConfiguration>(x =>
-            x.GroupConfigurations[Group].SetCommitStrategy(commitStrategy));
 
         return this;
     }

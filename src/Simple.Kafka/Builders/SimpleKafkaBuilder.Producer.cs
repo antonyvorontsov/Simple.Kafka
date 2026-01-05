@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Confluent.Kafka;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Simple.Kafka.Common;
+using Simple.Kafka.Consumer.Primitives;
 using Simple.Kafka.Producer;
 using Simple.Kafka.Producer.Builders;
 using Simple.Kafka.Producer.Configuration;
@@ -30,7 +32,7 @@ public sealed partial class SimpleKafkaBuilder
     }
 
     public SimpleKafkaBuilder AddProducer<TKey, TBody>(
-        string topic,
+        Topic topic,
         Action<ProducerConfigurationBuilder<TKey, TBody>>? builder = null)
     {
         if (string.IsNullOrEmpty(topic))
