@@ -1,0 +1,10 @@
+using System.Collections.Generic;
+using Simple.Kafka.Consumer.Primitives;
+
+namespace Simple.Kafka.Consumer.Configuration;
+
+internal sealed class ConsumerGroupsConfiguration
+{
+    internal IDictionary<Group, ConsumerGroupConfiguration> GroupConfigurations { get; } =
+        new Dictionary<Group, ConsumerGroupConfiguration>();
+}

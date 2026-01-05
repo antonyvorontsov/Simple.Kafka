@@ -3,5 +3,16 @@
         <PackageReference Include="Confluent.Kafka" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Microsoft.Extensions.Logging" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    </ItemGroup>
+    <ItemGroup>
+      <Compile Update="Builders\SimpleKafkaBuilder.Consumer.cs">
+        <DependentUpon>SimpleKafkaBuilder.cs</DependentUpon>
+      </Compile>
+      <Compile Update="Builders\SimpleKafkaBuilder.Producer.cs">
+        <DependentUpon>SimpleKafkaBuilder.cs</DependentUpon>
+      </Compile>
     </ItemGroup>
 </Project>
