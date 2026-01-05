@@ -10,6 +10,8 @@ namespace Simple.Kafka.Consumer;
 public interface IMessageDispatcher
 {
     Task<ChannelState> Publish(Group group, ConsumeResult<byte[], byte[]> message, CancellationToken cancellationToken);
-    Task StartSubscriptions(CancellationToken cancellationToken);
-    IAsyncEnumerable<Topic> GetMessageProcessedTriggers(Group group, CancellationToken cancellationToken);
+    // TODO: use it.
+    Task PublishAndWait(Group group, ConsumeResult<byte[], byte[]> message, CancellationToken cancellationToken);
+    Task SubscribeToMessages(CancellationToken cancellationToken);
+    IAsyncEnumerable<Topic> ReadProcessedMessageTriggers(Group group, CancellationToken cancellationToken);
 }

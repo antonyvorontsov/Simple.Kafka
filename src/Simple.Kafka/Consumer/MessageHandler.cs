@@ -68,7 +68,11 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
                 {
                     if (!skipDeserializationErrors) throw;
 
-                    _logger.LogError(exception, "{Prefix} A deserialization error has occurred", Constants.Prefixes.Consumer);
+                    _logger.LogError(
+                        exception, 
+                        "{Prefix} {HandlerName} A deserialization error has occurred", 
+                        Constants.Prefixes.Consumer,
+                        _handlerName);
                     return;
                 }
 
@@ -81,18 +85,18 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
                 {
                     if (!skipDeserializationErrors) throw;
 
-                    _logger.LogError(exception, "{Prefix} A deserialization error has occurred", Constants.Prefixes.Consumer);
+                    _logger.LogError(
+                        exception, 
+                        "{Prefix} {HandlerName} A deserialization error has occurred", 
+                        Constants.Prefixes.Consumer,
+                        _handlerName);
                     return;
                 }
 
-                var causationId = new CausationId(
-                    message.TopicPartitionOffset.Topic,
-                    message.TopicPartitionOffset.Partition.Value,
-                    message.TopicPartitionOffset.Offset.Value);
                 await Handle(
                     group,
                     new KafkaMessage<TKey, TBody>(key, body, message.Message.Headers),
-                    causationId,
+                    new CausationId(message.TopicPartitionOffset),
                     cancellationToken);
                 return;
             }
@@ -100,8 +104,9 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
             {
                 _logger.LogError(
                     exception,
-                    "{Prefix} Could not handle the message from {TopicPartition} due to an exception",
+                    "{Prefix} {HandlerName} Could not handle the message from {TopicPartition} due to an exception",
                     Constants.Prefixes.Consumer,
+                    _handlerName,
                     message.TopicPartition);
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             }
@@ -147,8 +152,9 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
             {
                 _logger.LogWarning(
                     exception,
-                    "{Prefix} Could not commit the message from {TopicPartition} in group {Group} due to a local error",
+                    "{Prefix} {HandlerName} Could not commit the message from {TopicPartition} in group {Group} due to a local error",
                     Constants.Prefixes.Consumer,
+                    _handlerName,
                     message.TopicPartition,
                     group);
                 return;
@@ -157,8 +163,9 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
             {
                 _logger.LogError(
                     exception,
-                    "{Prefix} Could not commit the message from {TopicPartition} in group {Group} due to an exception",
+                    "{Prefix} {HandlerName} Could not commit the message from {TopicPartition} in group {Group} due to an exception",
                     Constants.Prefixes.Consumer,
+                    _handlerName,
                     message.TopicPartition,
                     group);
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);

@@ -12,10 +12,8 @@ public sealed class GroupTargetsConfiguration(Group group)
     public Group Group { get; } = group;
     public IReadOnlyDictionary<Topic, Type> TopicTargets => _topicTargets;
 
-    public GroupTargetsConfiguration AddTarget(Topic topic, Type target)
+    public void AddTarget(Topic topic, Type target)
     {
         _topicTargets[topic] = target;
-
-        return this;
     }
 }

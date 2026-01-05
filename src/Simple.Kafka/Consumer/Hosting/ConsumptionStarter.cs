@@ -24,7 +24,7 @@ internal sealed class ConsumptionStarter(
     {
         yield return Task.Factory.StartNew(
             () =>
-                messageDispatcher.StartSubscriptions(cancellationToken),
+                messageDispatcher.SubscribeToMessages(cancellationToken),
             TaskCreationOptions.LongRunning);
 
         foreach (var manager in _consumerGroupManagers)

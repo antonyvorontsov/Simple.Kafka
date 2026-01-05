@@ -71,7 +71,7 @@ internal sealed class MessageDispatcher : IMessageDispatcher
         return new HandlerChannelContainer(
             messageHandler,
             Channel.CreateBounded<ConsumeResult<byte[], byte[]>>(
-                // TODO: move to constants or make configurable
+                // TODO: move it to constants or make configurable
                 new BoundedChannelOptions(100_000)
                 {
                     FullMode = BoundedChannelFullMode.Wait,
@@ -80,7 +80,10 @@ internal sealed class MessageDispatcher : IMessageDispatcher
                 }));
     }
 
-    public async Task<ChannelState> Publish(Group group, ConsumeResult<byte[], byte[]> message, CancellationToken cancellationToken)
+    public async Task<ChannelState> Publish(
+        Group group,
+        ConsumeResult<byte[], byte[]> message,
+        CancellationToken cancellationToken)
     {
         if (!_messageHandlersMap.TryGetValue(group, out var value))
         {
@@ -94,10 +97,20 @@ internal sealed class MessageDispatcher : IMessageDispatcher
 
         var channel = _messageHandlersMap[group][message.Topic].Channel;
         await channel.Writer.WriteAsync(message, cancellationToken);
+        // TODO: move it to constants or make configurable
         return channel.Reader.Count >= 900;
     }
 
-    public Task StartSubscriptions(CancellationToken cancellationToken)
+    public async Task PublishAndWait(
+        Group group,
+        ConsumeResult<byte[], byte[]> message,
+        CancellationToken cancellationToken)
+    {
+        var container = _messageHandlersMap[group][message.Topic];
+        await container.Handler.Handle(group, message, cancellationToken);
+    }
+
+    public Task SubscribeToMessages(CancellationToken cancellationToken)
     {
         return Task.WhenAll(GetSubscriptionTasks(cancellationToken));
     }
@@ -146,7 +159,7 @@ internal sealed class MessageDispatcher : IMessageDispatcher
         await value.Writer.WriteAsync(topic, cancellationToken);
     }
 
-    public IAsyncEnumerable<Topic> GetMessageProcessedTriggers(Group group, CancellationToken cancellationToken)
+    public IAsyncEnumerable<Topic> ReadProcessedMessageTriggers(Group group, CancellationToken cancellationToken)
     {
         if (!_messageProcessedTriggerChannelMap.TryGetValue(group, out var value))
         {

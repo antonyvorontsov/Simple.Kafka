@@ -1,7 +1,11 @@
+using Confluent.Kafka;
+
 namespace Simple.Kafka.Consumer.Primitives;
 
-public readonly record struct CausationId(string Topic, int Partition, long Offset)
+public sealed record CausationId(TopicPartitionOffset TopicPartitionOffset)
 {
-    public override string ToString() => $"{Topic} [{Partition} @ {Offset}]";
+    public override string ToString() =>
+        $"{TopicPartitionOffset.Topic} [{TopicPartitionOffset.Partition} @ {TopicPartitionOffset.Offset}]";
+
     public static implicit operator string(CausationId causationId) => causationId.ToString();
 }

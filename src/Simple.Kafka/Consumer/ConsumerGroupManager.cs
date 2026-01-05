@@ -40,28 +40,32 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
 
     public async Task SubscribeToEvents(CancellationToken cancellationToken)
     {
-        await foreach (var messageHandledInTopicEvent in _messageDispatcher.GetMessageProcessedTriggers(
+        await foreach (var topic in _messageDispatcher.ReadProcessedMessageTriggers(
                            _groupConfig.Group,
                            cancellationToken))
         {
-            // TODO: make it safer.
-            if (_pausedPartitions[messageHandledInTopicEvent].Count == 0)
-            {
-                continue;
-            }
-
-            await ResumePausedTopicPartitions(messageHandledInTopicEvent, cancellationToken);
+            await TryResumePausedTopicPartitions(topic, cancellationToken);
         }
     }
 
-    private async ValueTask ResumePausedTopicPartitions(Topic topic, CancellationToken cancellationToken)
+    private async ValueTask TryResumePausedTopicPartitions(Topic topic, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
                 var partitionsToResume = _pausedPartitions[topic];
-                await Resume(partitionsToResume, cancellationToken);
+                if (partitionsToResume.Count == 0)
+                {
+                    return;
+                }
+
+                _logger.LogInformation(
+                    "{Prefix} Resuming partitions [{Partitions}]",
+                    Constants.Prefixes.Consumer,
+                    string.Join(", ", partitionsToResume));
+                
+                _consumer!.Resume(partitionsToResume);
                 _pausedPartitions[topic].Clear();
                 return;
             }
@@ -75,37 +79,10 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             {
                 _logger.LogError(
                     exception,
-                    "{Prefix} Could not resume partitions for topic {Topic} in group {Group}",
+                    "{Prefix} Could not resume partitions for topic {Topic} in group {Group}. Error: {Message}",
                     Constants.Prefixes.Consumer,
                     topic,
-                    _groupConfig.Group);
-                // TODO: Add Constants.Delays.
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
-            }
-        }
-    }
-
-    private async Task Resume(
-        IReadOnlyCollection<TopicPartition> partitionsToResume,
-        CancellationToken cancellationToken)
-    {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                _logger.LogInformation(
-                    "{Prefix} Resuming partitions [{Partitions}]",
-                    Constants.Prefixes.Consumer,
-                    string.Join(", ", partitionsToResume));
-                _consumer!.Resume(partitionsToResume);
-                return;
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(
-                    exception,
-                    "{Prefix} Could not resume consumption. Error: {Message}",
-                    Constants.Prefixes.Consumer,
+                    _groupConfig.Group,
                     exception.Message);
                 // TODO: Add Constants.Delays.
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
@@ -120,8 +97,9 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             try
             {
                 using var consumer = BuildConsumer();
+                UnpauseAllPartitions();
                 _logger.LogInformation("{Prefix} Consumer has been created", Constants.Prefixes.Consumer);
-                
+
                 _consumer = consumer;
                 await Consume(cancellationToken);
             }
@@ -134,6 +112,16 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                     exception.Message);
                 // TODO: Add Constants.Delays.
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            }
+        }
+
+        return;
+
+        void UnpauseAllPartitions()
+        {
+            foreach (var topic in _pausedPartitions.Keys)
+            {
+                _pausedPartitions[topic].Clear();
             }
         }
     }
@@ -164,6 +152,7 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                     continue;
                 }
 
+                // TODO: Add configuration and straight processing of messages.
                 var channelState = await _messageDispatcher.Publish(
                     _groupConfig.Group,
                     consumeResult,
@@ -298,16 +287,13 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
         {
             foreach (var topicPartition in topicPartitions)
             {
+                // If the consumer gets a new assignment we do not need to pause that partition,
+                // because it will pause itself after trying to process one message from it.
                 _logger.LogInformation(
                     "{Prefix} Topic partition {TopicPartition} assigned for group {Group}",
                     Constants.Prefixes.Consumer,
                     topicPartition,
                     _groupConfig.Group);
-
-                if (_pausedPartitions[topicPartition.Topic].Count != 0)
-                {
-                    _pausedPartitions[topicPartition.Topic].Add(topicPartition);
-                }
             }
         }
 
@@ -321,7 +307,8 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                     topicPartition,
                     _groupConfig.Group);
 
-                if (_pausedPartitions[topicPartition.Topic].Count != 0)
+                // But if a partition gets revoked we need to remove it from the 'paused' collection.
+                if (_pausedPartitions[topicPartition.Topic].Contains(topicPartition.TopicPartition))
                 {
                     _pausedPartitions[topicPartition.Topic].Remove(topicPartition.TopicPartition);
                 }
