@@ -2,13 +2,34 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
+using Simple.Kafka.Common;
 using Simple.Kafka.Producer.Exceptions;
 
 namespace Simple.Kafka.Producer;
 
-internal sealed class BaseProducer(IKafkaProducerFactory factory) : IBaseProducer
+internal sealed class BaseProducer : IBaseProducer
 {
-    private readonly IProducer<byte[]?, byte[]?> _producer = factory.Create();
+    private readonly IProducer<byte[]?, byte[]?> _producer;
+
+    public BaseProducer(ProducerConfig config, ILogger<BaseProducer> logger)
+    {
+        _producer = new ProducerBuilder<byte[]?, byte[]?>(config)
+            .SetLogHandler((_, message) => logger.LogInformation(
+                "{Prefix} Kafka producer event has occurred. Level {Level}. Librdkafka client error name {Name}. {Facility}: {Message}",
+                Constants.Prefixes.Producer,
+                message.Level,
+                message.Name,
+                message.Facility,
+                message.Message))
+            .SetErrorHandler((_, error) => logger.LogError(
+                "{Prefix} Kafka producer error has occurred. Code {Code}. IsFatal {IsFatal}. Reason: {Reason}",
+                Constants.Prefixes.Producer,
+                error.Code,
+                error.IsFatal,
+                error.Reason))
+            .Build();
+    }
 
     public async Task Produce(
         string topic,

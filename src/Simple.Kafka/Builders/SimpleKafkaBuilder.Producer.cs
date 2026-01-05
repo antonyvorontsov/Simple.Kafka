@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Confluent.Kafka;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Simple.Kafka.Common;
-using Simple.Kafka.Consumer.Primitives;
 using Simple.Kafka.Producer;
 using Simple.Kafka.Producer.Builders;
 using Simple.Kafka.Producer.Configuration;
@@ -14,10 +15,21 @@ namespace Simple.Kafka.Builders;
 
 public sealed partial class SimpleKafkaBuilder
 {
+    private readonly ProducerConfig _defaultProducerConfig = new()
+    {
+        Acks = Acks.All,
+        QueueBufferingMaxMessages = 1_000_000,
+        QueueBufferingMaxKbytes = 2_097_152,
+        BatchSize = 4_194_304,
+        LingerMs = 50,
+        BatchNumMessages = 10_000,
+        BootstrapServers = brokers
+    };
+    
     public SimpleKafkaBuilder AddProducer(
         Action<ProducerConfigurationBuilder>? builder = null)
     {
-        TryAddProducerInfrastructure();
+        RegisterBaseProducer(_defaultProducerConfig);
         services.TryAddSingleton<IKafkaProducer, KafkaProducer>();
         services.Configure<KafkaProducerConfiguration>(config =>
         {
@@ -40,7 +52,7 @@ public sealed partial class SimpleKafkaBuilder
             throw new ArgumentException("Topic name is required", nameof(topic));
         }
 
-        TryAddProducerInfrastructure();
+        RegisterBaseProducer(_defaultProducerConfig);
         services.Configure<KafkaProducerConfiguration<TKey, TBody>>(config =>
         {
             config.Topic = topic;
@@ -66,31 +78,33 @@ public sealed partial class SimpleKafkaBuilder
     public SimpleKafkaBuilder CustomizeProducerConfiguration(
         Action<ProducerConfig>? configuration = null)
     {
-        var producerConfig = new ProducerConfig
-        {
-            Acks = Acks.All,
-            QueueBufferingMaxMessages = 1_000_000,
-            QueueBufferingMaxKbytes = 2_097_152,
-            BatchSize = 4_194_304,
-            LingerMs = 50,
-            BatchNumMessages = 10_000
-        };
+        var producerConfig = new ProducerConfig();
         configuration?.Invoke(producerConfig);
 
         // Setting bootstrap servers right after the action invocation
         // because this library is intended to work with only one kafka cluster.
         // Thus, we do not allow any overrides after the cluster registration is done.
         producerConfig.BootstrapServers = brokers;
-        services.TryAddSingleton(producerConfig);
+
+        RemoveBaseProducer();
+        RegisterBaseProducer(producerConfig);
 
         return this;
     }
 
-    private void TryAddProducerInfrastructure()
+    private void RemoveBaseProducer()
     {
-        CustomizeProducerConfiguration();
+        var serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IBaseProducer));
+        if (serviceDescriptor is not null)
+        {
+            services.Remove(serviceDescriptor);
+        }
+    }
 
-        services.TryAddSingleton<IKafkaProducerFactory, KafkaProducerFactory>();
-        services.TryAddSingleton<IBaseProducer, BaseProducer>();
+    private void RegisterBaseProducer(ProducerConfig producerConfig)
+    {
+        services.AddSingleton<IBaseProducer>(provider => new BaseProducer(
+            producerConfig,
+            provider.GetRequiredService<ILogger<BaseProducer>>()));
     }
 }

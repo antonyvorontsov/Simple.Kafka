@@ -71,7 +71,8 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             {
                 _logger.LogError(
                     exception,
-                    "Could not resume partitions for topic {Topic} in group {Group}",
+                    "{Prefix} Could not resume partitions for topic {Topic} in group {Group}",
+                    Constants.Prefixes.Consumer,
                     topic,
                     _groupConfig.Group);
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
@@ -88,7 +89,8 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             try
             {
                 _logger.LogInformation(
-                    "Resuming partitions [{Partitions}]",
+                    "{Prefix} Resuming partitions [{Partitions}]",
+                    Constants.Prefixes.Consumer,
                     string.Join(", ", partitionsToResume));
                 _consumer!.Resume(partitionsToResume);
                 return;
@@ -97,7 +99,8 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             {
                 _logger.LogError(
                     exception,
-                    "Could not resume consumption. Error {Message}",
+                    "{Prefix} Could not resume consumption. Error: {Message}",
+                    Constants.Prefixes.Consumer,
                     exception.Message);
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             }
@@ -111,7 +114,7 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             try
             {
                 using var consumer = BuildConsumer();
-                _logger.LogInformation("Consumer has been created");
+                _logger.LogInformation("{Prefix} Consumer has been created", Constants.Prefixes.Consumer);
                 
                 _consumer = consumer;
                 await Consume(cancellationToken);
@@ -120,7 +123,8 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             {
                 _logger.LogError(
                     exception,
-                    "Consumption stopped due to the error {Message}. Consumer will be restarted",
+                    "{Prefix} Consumption has been stopped due to an error: {Message}. Consumer will be restarted",
+                    Constants.Prefixes.Consumer,
                     exception.Message);
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             }
@@ -164,7 +168,8 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                     _pausedPartitions[consumeResult.Topic] = partitionsToPause;
                     
                     _logger.LogInformation(
-                        "Pausing partitions [{Partitions}]",
+                        "{Prefix} Pausing partitions [{Partitions}]",
+                        Constants.Prefixes.Consumer,
                         string.Join(", ", partitionsToPause));
                     _consumer.Pause(partitionsToPause);
                 }
@@ -172,11 +177,11 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Could not consume properly in time. Error {Message}", exception.Message);
+            _logger.LogError(exception, "{Prefix} Could not consume a message properly. Error: {Message}", Constants.Prefixes.Consumer, exception.Message);
         }
         finally
         {
-            _logger.LogInformation("Shutting down current consumer");
+            _logger.LogInformation("{Prefix} Shutting down current consumer", Constants.Prefixes.Consumer);
             foreach (var topicPartitions in _pausedPartitions)
             {
                 topicPartitions.Value.Clear();

@@ -68,8 +68,7 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
                 {
                     if (!skipDeserializationErrors) throw;
 
-                    _logger.LogError(exception, "{HandlerName} .Deserialization error occured",
-                        _handlerName);
+                    _logger.LogError(exception, "{Prefix} A deserialization error has occurred", Constants.Prefixes.Consumer);
                     return;
                 }
 
@@ -82,7 +81,7 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
                 {
                     if (!skipDeserializationErrors) throw;
 
-                    _logger.LogError(exception, "Deserialization error occured");
+                    _logger.LogError(exception, "{Prefix} A deserialization error has occurred", Constants.Prefixes.Consumer);
                     return;
                 }
 
@@ -101,7 +100,8 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
             {
                 _logger.LogError(
                     exception,
-                    "Could not handle the message {TopicPartition} due to occured exception",
+                    "{Prefix} Could not handle the message from {TopicPartition} due to an exception",
+                    Constants.Prefixes.Consumer,
                     message.TopicPartition);
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             }
@@ -136,7 +136,7 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
                 var strategy = _commitStrategyManager.Get(group);
                 if (strategy is null)
                 {
-                    throw new CommitStrategyException($"Commit strategy for group {group} not found");
+                    throw new CommitStrategyException($"Commit strategy for group {group} has not been found");
                 }
 
                 strategy(message);
@@ -147,7 +147,8 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
             {
                 _logger.LogWarning(
                     exception,
-                    "Could not commit the message from {TopicPartition} in group {Group} due to local error",
+                    "{Prefix} Could not commit the message from {TopicPartition} in group {Group} due to a local error",
+                    Constants.Prefixes.Consumer,
                     message.TopicPartition,
                     group);
                 return;
@@ -156,7 +157,8 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
             {
                 _logger.LogError(
                     exception,
-                    "Could not commit the message from {TopicPartition} in group {Group} due to occured exception",
+                    "{Prefix} Could not commit the message from {TopicPartition} in group {Group} due to an exception",
+                    Constants.Prefixes.Consumer,
                     message.TopicPartition,
                     group);
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
