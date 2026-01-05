@@ -4,6 +4,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{F0D0344C-74F
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{E8E8EE16-518D-4D2F-8497-9774B9466971}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{5F4B6A3B-7E4F-4B0A-8A0A-8A4AE2AEB044}"
+	ProjectSection(SolutionItems) = preProject
+		docs\consumer.md = docs\consumer.md
+		docs\producer.md = docs\producer.md
+	EndProjectSection
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simple.Kafka.Sample", "samples\Simple.Kafka.Sample\Simple.Kafka.Sample.csproj", "{869983C7-ABB9-44FD-B040-8A4AE2AEB044}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simple.Kafka", "src\Simple.Kafka\Simple.Kafka.csproj", "{4CE6BE9E-451F-42EE-B3DA-589D887A1333}"
