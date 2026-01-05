@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -43,6 +44,7 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                            _groupConfig.Group,
                            cancellationToken))
         {
+            // TODO: make it safer.
             if (_pausedPartitions[messageHandledInTopicEvent].Count == 0)
             {
                 continue;
@@ -65,6 +67,8 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             }
             catch (ObjectDisposedException)
             {
+                // In that case we do not need to keep trying. That exception occurs only when the consumer is being recreated.
+                // That means that other partitions will be assigned to that consumer after its creation.
                 return;
             }
             catch (Exception exception)
@@ -75,6 +79,7 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                     Constants.Prefixes.Consumer,
                     topic,
                     _groupConfig.Group);
+                // TODO: Add Constants.Delays.
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             }
         }
@@ -102,6 +107,7 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                     "{Prefix} Could not resume consumption. Error: {Message}",
                     Constants.Prefixes.Consumer,
                     exception.Message);
+                // TODO: Add Constants.Delays.
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             }
         }
@@ -123,9 +129,10 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             {
                 _logger.LogError(
                     exception,
-                    "{Prefix} Consumption has been stopped due to an error: {Message}. Consumer will be restarted",
+                    "{Prefix} Consumption has been stopped due to an error: {Message}. Consumer will be recreated",
                     Constants.Prefixes.Consumer,
                     exception.Message);
+                // TODO: Add Constants.Delays.
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             }
         }
@@ -135,6 +142,8 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
     {
         try
         {
+            // Since we control the disposal of the consumer manually, we are sure that these warnings are not a threat.
+            // ReSharper disable AccessToDisposedClosure
             _commitStrategyManager.Set(
                 _groupConfig.Group,
                 _groupConfig.CommitStrategy switch
@@ -202,11 +211,13 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
             try
             {
                 attempt++;
+                // TODO: Use (add) millisecondsTimeout configuration for the group.
                 return _consumer!.Consume(millisecondsTimeout: 250);
             }
             catch (ConsumeException exception) when (!exception.Error.IsFatal &&
                                                      attempt < 5)
             {
+                // TODO: Add Constants.Delays.
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             }
         }
@@ -216,7 +227,105 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
 
     private IConsumer<byte[], byte[]> BuildConsumer()
     {
-        // TODO: Set handler for... methods.
-        return new ConsumerBuilder<byte[], byte[]>(_consumerConfig).Build();
+        return new ConsumerBuilder<byte[], byte[]>(_consumerConfig)
+            .SetLogHandler(HandleLog)
+            .SetErrorHandler(HandleError)
+            .SetOffsetsCommittedHandler(HandleOffsetsCommitted)
+            .SetPartitionsAssignedHandler(HandleOffsetsAssigned)
+            .SetPartitionsRevokedHandler(HandleOffsetsRevoked)
+            .Build();
+
+
+        void HandleLog(IConsumer<byte[], byte[]> _, LogMessage message)
+        {
+            _logger.LogInformation(
+                "{Prefix} Kafka consumer event occured. Level {Level}. Name of librdkafka client {Name}. {Facility}: {Message}",
+                Constants.Prefixes.Consumer,
+                message.Level,
+                message.Name,
+                message.Facility,
+                message.Message);
+        }
+
+        void HandleError(IConsumer<byte[], byte[]> _, Error error)
+        {
+            if (error.IsFatal)
+            {
+                _logger.LogError(
+                    "{Prefix} Kafka consumer fatal error occured. Code {Code}. Reason: {Reason}",
+                    Constants.Prefixes.Consumer,
+                    error.Code,
+                    error.Reason);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "{Prefix} Kafka consumer local error occured. Code {Code}. Reason: {Reason}",
+                    Constants.Prefixes.Consumer,
+                    error.Code,
+                    error.Reason);
+            }
+        }
+
+        void HandleOffsetsCommitted(IConsumer<byte[], byte[]> _, CommittedOffsets committedOffsets)
+        {
+            var sb = new StringBuilder();
+            foreach (var offset in committedOffsets.Offsets)
+            {
+                sb.AppendLine(offset.TopicPartitionOffset.ToString());
+            }
+
+            if (committedOffsets.Error.IsError)
+            {
+                _logger.LogError(
+                    "{Prefix} Could not commit offsets {Offsets}. Code {Code}. IsFatal {IsFatal}. Reason: {Reason}",
+                    Constants.Prefixes.Consumer,
+                    sb.ToString(),
+                    committedOffsets.Error.Code,
+                    committedOffsets.Error.IsFatal,
+                    committedOffsets.Error.Reason);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "{Prefix} Successfully committed offsets {Offsets}",
+                    Constants.Prefixes.Consumer,
+                    sb.ToString());
+            }
+        }
+
+        void HandleOffsetsAssigned(IConsumer<byte[], byte[]> _, List<TopicPartition> topicPartitions)
+        {
+            foreach (var topicPartition in topicPartitions)
+            {
+                _logger.LogInformation(
+                    "{Prefix} Topic partition {TopicPartition} assigned for group {Group}",
+                    Constants.Prefixes.Consumer,
+                    topicPartition,
+                    _groupConfig.Group);
+
+                if (_pausedPartitions[topicPartition.Topic].Count != 0)
+                {
+                    _pausedPartitions[topicPartition.Topic].Add(topicPartition);
+                }
+            }
+        }
+
+        void HandleOffsetsRevoked(IConsumer<byte[], byte[]> _, List<TopicPartitionOffset> topicPartitions)
+        {
+            foreach (var topicPartition in topicPartitions)
+            {
+                _logger.LogInformation(
+                    "{Prefix} Topic partition {TopicPartition} revoked for group {Group}",
+                    Constants.Prefixes.Consumer,
+                    topicPartition,
+                    _groupConfig.Group);
+
+                if (_pausedPartitions[topicPartition.Topic].Count != 0)
+                {
+                    _pausedPartitions[topicPartition.Topic].Remove(topicPartition.TopicPartition);
+                }
+            }
+        }
     }
 }
