@@ -14,6 +14,7 @@ namespace Simple.Kafka.Consumer;
 
 internal sealed class MessageDispatcher : IMessageDispatcher
 {
+    private readonly DispatcherChannelsConfiguration _channelsConfiguration;
     private readonly Dictionary<Group, Dictionary<Topic, HandlerChannelContainer>> _messageHandlersMap;
     private readonly Dictionary<Group, Channel<Topic>> _messageProcessedTriggerChannelMap;
 
@@ -21,8 +22,10 @@ internal sealed class MessageDispatcher : IMessageDispatcher
         IEnumerable<IMessageHandler> messageHandlers,
         IOptions<DispatcherConfiguration> dispatcherConfiguration)
     {
-        _messageHandlersMap = ConstructMessageHandlersMap(messageHandlers, dispatcherConfiguration.Value.GroupTargets);
-        _messageProcessedTriggerChannelMap = ConstructMessageProcessedTriggerChannelMap(dispatcherConfiguration.Value.GroupTargets);
+        _channelsConfiguration = dispatcherConfiguration.Value.ChannelsConfiguration;
+        var groupTargets = dispatcherConfiguration.Value.GroupTargets;
+        _messageHandlersMap = ConstructMessageHandlersMap(messageHandlers, groupTargets);
+        _messageProcessedTriggerChannelMap = ConstructMessageProcessedTriggerChannelMap(groupTargets);
     }
 
     private static Dictionary<Group, Channel<Topic>> ConstructMessageProcessedTriggerChannelMap(Dictionary<Group, GroupTargetsConfiguration> groupTargets)
@@ -71,9 +74,9 @@ internal sealed class MessageDispatcher : IMessageDispatcher
         return new HandlerChannelContainer(
             messageHandler,
             Channel.CreateBounded<ConsumeResult<byte[], byte[]>>(
-                // TODO: move it to constants or make configurable
-                new BoundedChannelOptions(100_000)
+                new BoundedChannelOptions(_channelsConfiguration.ChannelCapacity)
                 {
+                    // If the channel overflows we just wait, otherwise we are in danger of losing messages.
                     FullMode = BoundedChannelFullMode.Wait,
                     SingleWriter = true,
                     SingleReader = true
@@ -97,8 +100,7 @@ internal sealed class MessageDispatcher : IMessageDispatcher
 
         var channel = _messageHandlersMap[group][message.Topic].Channel;
         await channel.Writer.WriteAsync(message, cancellationToken);
-        // TODO: move it to constants or make configurable
-        return channel.Reader.Count >= 900;
+        return channel.Reader.Count >= _channelsConfiguration.CapacityToAlmostFullState;
     }
 
     public async Task PublishAndWait(
@@ -141,12 +143,13 @@ internal sealed class MessageDispatcher : IMessageDispatcher
                 await PublishMessageProcessedTrigger(group, topic, cancellationToken);
             }
         }
-    }
 
-    private bool ChannelCanBeConsideredFreeing(int currentChannelSize)
-    {
-        // TODO: make configurable.
-        return currentChannelSize <= 100;
+        return;
+
+        bool ChannelCanBeConsideredFreeing(int currentChannelSize)
+        {
+            return currentChannelSize <= _channelsConfiguration.FreeChannelBoundary;
+        }
     }
 
     private async Task PublishMessageProcessedTrigger(Group group, Topic topic, CancellationToken cancellationToken)
@@ -168,6 +171,4 @@ internal sealed class MessageDispatcher : IMessageDispatcher
 
         return value.Reader.ReadAllAsync(cancellationToken);
     }
-    
-    // TODO: shutdown and other stuff
 }

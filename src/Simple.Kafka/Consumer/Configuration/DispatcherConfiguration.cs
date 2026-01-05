@@ -7,4 +7,5 @@ namespace Simple.Kafka.Consumer.Configuration;
 public sealed class DispatcherConfiguration
 {
     internal Dictionary<Group, GroupTargetsConfiguration> GroupTargets { get; } = new();
+    public DispatcherChannelsConfiguration ChannelsConfiguration { get; internal set; } = new();
 }

@@ -84,8 +84,7 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                     topic,
                     _groupConfig.Group,
                     exception.Message);
-                // TODO: Add Constants.Delays.
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                await Task.Delay(Constants.Delays.DefaultDelay, cancellationToken);
             }
         }
     }
@@ -110,8 +109,7 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                     "{Prefix} Consumption has been stopped due to an error: {Message}. Consumer will be recreated",
                     Constants.Prefixes.Consumer,
                     exception.Message);
-                // TODO: Add Constants.Delays.
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                await Task.Delay(Constants.Delays.DefaultDelay, cancellationToken);
             }
         }
 
@@ -203,11 +201,11 @@ internal sealed class ConsumerGroupManager : IConsumerGroupManager
                 // TODO: Use (add) millisecondsTimeout configuration for the group.
                 return _consumer!.Consume(millisecondsTimeout: 250);
             }
+            // TODO: Max number of attempts to const.
             catch (ConsumeException exception) when (!exception.Error.IsFatal &&
                                                      attempt < 5)
             {
-                // TODO: Add Constants.Delays.
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                await Task.Delay(Constants.Delays.DefaultDelay, cancellationToken);
             }
         }
 

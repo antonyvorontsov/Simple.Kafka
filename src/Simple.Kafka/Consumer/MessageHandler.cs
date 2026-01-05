@@ -14,7 +14,7 @@ namespace Simple.Kafka.Consumer;
 internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<TKey, TBody>
     where TConsumer : IKafkaConsumer<TKey, TBody>
 {
-    private bool _skipDeserializationErrorsGlobally;
+    private readonly bool _skipDeserializationErrorsGlobally;
     private readonly string _handlerName;
 
     private readonly TConsumer _kafkaConsumer;
@@ -24,17 +24,16 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
 
     public MessageHandler(
         TConsumer kafkaConsumer,
-        IOptions<MessageHandlerConfiguration<TKey, TBody>> messageHandlerConfiguration,
         ICommitStrategyManager commitStrategyManager,
-        IOptionsMonitor<GlobalKafkaConsumerConfiguration> globalConfiguration,
+        IOptions<MessageHandlerConfiguration<TKey, TBody>> messageHandlerConfiguration,
+        IOptions<GlobalKafkaConsumerConfiguration> globalConfiguration,
         ILogger<MessageHandler<TConsumer, TKey, TBody>> logger)
     {
         _kafkaConsumer = kafkaConsumer;
         _messageHandlerConfiguration = messageHandlerConfiguration.Value;
         _commitStrategyManager = commitStrategyManager;
 
-        _skipDeserializationErrorsGlobally = globalConfiguration.CurrentValue.SkipDeserializationErrorsGlobally;
-        globalConfiguration.OnChange(config => _skipDeserializationErrorsGlobally = config.SkipDeserializationErrorsGlobally);
+        _skipDeserializationErrorsGlobally = globalConfiguration.Value.SkipDeserializationErrorsGlobally;
         _logger = logger;
 
         _handlerName = $"{GetType().Name}<{typeof(TConsumer).Name}, {typeof(TKey).Name}, {typeof(TBody).Name}>";
@@ -94,7 +93,6 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
                 }
 
                 await Handle(
-                    group,
                     new KafkaMessage<TKey, TBody>(key, body, message.Message.Headers),
                     new CausationId(message.TopicPartitionOffset),
                     cancellationToken);
@@ -104,17 +102,17 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
             {
                 _logger.LogError(
                     exception,
-                    "{Prefix} {HandlerName} Could not handle the message from {TopicPartition} due to an exception",
+                    "{Prefix} {HandlerName} Could not handle the message from {TopicPartition} in group {Group} due to an exception",
                     Constants.Prefixes.Consumer,
                     _handlerName,
-                    message.TopicPartition);
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                    message.TopicPartition,
+                    group);
+                await Task.Delay(Constants.Delays.DefaultDelay, cancellationToken);
             }
         }
     }
 
     public Task Handle(
-        Group group,
         KafkaMessage<TKey, TBody> message,
         CausationId causationId,
         CancellationToken cancellationToken)
@@ -150,6 +148,13 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
             }
             catch (KafkaException exception) when (!exception.Error.IsFatal && exception.Error.Code == ErrorCode.Local_State)
             {
+                // When we commit a message by a consumer which does not have an assignment to the partition we get an exception.
+                // Exception is not as informative and says 'Local: Erroneous state'. Here are some key points:
+                //  - the pratition has been reassigned to another consumer;
+                //  - since we do not 'own' that partition anymore we cannot commit (or store offset) for that partition;
+                //  - messages from that partition are expected to be processed by another consumer;
+                //  - we CAN SKIP messages with such exceptions.
+                // See the comment - https://github.com/confluentinc/confluent-kafka-dotnet/issues/1861#issuecomment-1207402568
                 _logger.LogWarning(
                     exception,
                     "{Prefix} {HandlerName} Could not commit the message from {TopicPartition} in group {Group} due to a local error",
@@ -168,7 +173,7 @@ internal sealed class MessageHandler<TConsumer, TKey, TBody> : IMessageHandler<T
                     _handlerName,
                     message.TopicPartition,
                     group);
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                await Task.Delay(Constants.Delays.DefaultDelay, cancellationToken);
             }
         }
     }

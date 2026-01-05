@@ -27,16 +27,18 @@ public sealed partial class SimpleKafkaBuilder
             throw new ArgumentException("Group has to be specified", nameof(group));
         }
 
-        TryAddKafkaConsumerInfrastructure();
-
+        // Configuration
         services.Configure<DispatcherConfiguration>(options =>
             options.GroupTargets[group] = new GroupTargetsConfiguration(group));
-
         var groupConfiguration = new ConsumerGroupConfiguration(group, commitStrategy);
         services.Configure<ConsumerGroupsConfiguration>(x => x.GroupConfigurations[group] = groupConfiguration);
-
         services.AddSingleton(new RegisteredConsumerGroup(group));
-
+        services.Configure<ConsumerGroupsConfiguration>(x =>
+            x.GroupConfigurations[group].SetCommitStrategy(commitStrategy));
+        
+        // Infrastructure
+        services.TryAddSingleton<IMessageDispatcher, MessageDispatcher>();
+        services.TryAddSingleton<ICommitStrategyManager, CommitStrategyManager>();
         services.AddSingleton<IConsumerGroupManager>(
             provider =>
             {
@@ -59,23 +61,14 @@ public sealed partial class SimpleKafkaBuilder
                     provider.GetRequiredService<ICommitStrategyManager>(),
                     provider.GetRequiredService<ILogger<ConsumerGroupManager>>());
             });
+        AddHostedServiceOnce<ConsumptionStarter>();
 
-        services.Configure<ConsumerGroupsConfiguration>(x =>
-            x.GroupConfigurations[group].SetCommitStrategy(commitStrategy));
-
+        // Inner configuration for the consumer group
         var builderInstance = new KafkaConsumerGroupConfigurationBuilder(group, services);
         builder.Invoke(builderInstance);
 
         return this;
-    }
-
-    private void TryAddKafkaConsumerInfrastructure()
-    {
-        AddHostedServiceOnce<ConsumptionStarter>();
-        services.TryAddSingleton<IMessageDispatcher, MessageDispatcher>();
-        services.TryAddSingleton<ICommitStrategyManager, CommitStrategyManager>();
-        return;
-
+        
         void AddHostedServiceOnce<T>()
             where T : class, IHostedService
         {
@@ -88,5 +81,13 @@ public sealed partial class SimpleKafkaBuilder
 
             services.AddHostedService<T>();
         }
+    }
+
+    public SimpleKafkaBuilder ConfigureChannels(
+        SimpleKafkaBuilder builder,
+        DispatcherChannelsConfiguration configuration)
+    {
+        services.Configure<DispatcherConfiguration>(x => x.ChannelsConfiguration = configuration);
+        return builder;
     }
 }
